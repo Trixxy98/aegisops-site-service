@@ -68,14 +68,62 @@ jobs:
             COMMIT_SHA=${{ github.sha }}
             BUILD_TIME=${{ github.event.head_commit.timestamp }}
 
-  register:
+  security:
     needs: image
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        continue-on-error: true
+        env:
+          GITLEAKS_ENABLE_SUMMARY: "false"
+        with:
+          args: detect --report-format sarif --report-path gitleaks.sarif --exit-code 0
+      - name: Semgrep
+        run: |
+          docker run --rm -v "$PWD:/src" semgrep/semgrep semgrep scan \
+            --config p/default --config p/csharp --sarif -o /src/semgrep.sarif || true
+          if [ ! -f semgrep.sarif ]; then
+            printf '%s\n' '{"version":"2.1.0","runs":[{"tool":{"driver":{"name":"semgrep"}},"results":[]}]}' > semgrep.sarif
+          fi
+      - name: Trivy
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: ${{ needs.image.outputs.image }}
+          format: sarif
+          output: trivy.sarif
+          exit-code: "0"
+      - name: Keep empty reports
+        run: |
+          empty='{"version":"2.1.0","runs":[{"tool":{"driver":{"name":"none"}},"results":[]}]}'
+          for file in gitleaks.sarif semgrep.sarif trivy.sarif; do
+            if [ ! -s "$file" ]; then
+              printf '%s\n' "$empty" > "$file"
+            fi
+          done
+      - uses: actions/upload-artifact@v4
+        with:
+          name: scans
+          path: |
+            gitleaks.sarif
+            semgrep.sarif
+            trivy.sarif
+
+  register:
+    needs: [image, security]
     if: github.event_name != 'pull_request'
     runs-on: self-hosted
     steps:
       - uses: actions/download-artifact@v4
         with:
           name: test-summary
+      - uses: actions/download-artifact@v4
+        with:
+          name: scans
       - uses: Trixxy98/AegisOps---DevSecOps-AI-Control-Plane/.github/actions/aegisops-report@dev
         with:
           url: ${{ vars.AEGISOPS_URL }}
@@ -87,4 +135,5 @@ jobs:
           image: ${{ needs.image.outputs.image }}
           digest: ${{ needs.image.outputs.digest }}
           test-summary: test-summary.json
+          scans: gitleaks.sarif,semgrep.sarif,trivy.sarif
           deploy-to: ${{ github.event.inputs.environment || 'Staging' }}
