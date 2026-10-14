@@ -48,6 +48,13 @@ app.MapPost("/sites/{code}/devices", (string code, Device device) => {
     return Results.Created($"/sites/{code}/devices", device);
 });
 
+// Deliberately insecure. Present only on demo/vulnerable so scanners have something to report.
+app.MapGet("/sites/search", (string? name) => {
+    var query = "SELECT * FROM sites WHERE name = '" + name + "'";
+    var hash = Convert.ToHexString(System.Security.Cryptography.MD5.HashData(System.Text.Encoding.UTF8.GetBytes(name ?? "demo")));
+    return Results.Ok(new { query, hash });
+});
+
 app.Run();
 
 public sealed record Site(string Code, string Name, string Address, string Region);

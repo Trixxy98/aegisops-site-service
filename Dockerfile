@@ -3,10 +3,10 @@ WORKDIR /src
 COPY . .
 RUN dotnet publish src/Service/Service.csproj -c Release -o /app
 
-FROM mcr.microsoft.com/dotnet/aspnet:10.0
+# demo/vulnerable pins an old runtime so Trivy reports known CVEs. Do not merge this to main.
+FROM mcr.microsoft.com/dotnet/aspnet:8.0.0
 WORKDIR /app
-COPY --from=build --chown=$APP_UID:$APP_UID /app .
-USER $APP_UID
+COPY --from=build /app .
 ARG VERSION=v0.0.0-dev
 ARG COMMIT_SHA=local
 ARG BUILD_TIME=unknown
