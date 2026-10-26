@@ -87,7 +87,7 @@ jobs:
             git --report-format sarif --report-path /src/gitleaks.sarif --exit-code 0 .
       - name: Semgrep
         run: |
-          docker run --rm -v "$PWD:/src" -w /src semgrep/semgrep:1.177.0 scan \
+          docker run --rm -v "$PWD:/src" -w /src semgrep/semgrep:1.177.0 semgrep scan \
             --config p/default --config p/csharp --metrics=off --sarif -o semgrep.sarif
       - name: Authenticate to GHCR for image scan
         uses: docker/login-action@v3
