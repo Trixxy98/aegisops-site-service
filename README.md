@@ -26,8 +26,15 @@ AegisOps target service. `GET /health` and `GET /version` are required. CI regis
    point the worker at the main database for a trial run.
 
 Run `bash tests/ci-contract.sh` and `dotnet run --project tests/Service.Tests/Service.Tests.csproj --no-launch-profile`
-locally to check tests and report guards. After reviewing/publishing this workflow, trigger
-`workflow_dispatch` on `main` with `Staging` (or push main). The build publishes the image,
+locally to check tests and report guards. After reviewing/publishing this workflow, push a
+new commit to `main`. The build publishes the image,
 scanners upload real SARIF, and the runner registers the artifact/scans and requests deployment.
 Check the AegisOps deployment timeline and target `/version` rather than treating a green
 request job as proof that worker deployment succeeded.
+
+**Manual Staging retry:** do not rerun CI to redeploy an existing version. In AegisOps,
+select the already registered artifact (verify its image digest and completed scans), then
+request a new Staging deployment of that artifact. This does not rebuild or push its GHCR
+tag. If a fresh build is required, push a new commit to `main`; every CI run/attempt gets
+its own `-run.<run-id>.<attempt>` image tag and artifact version, including version tags.
+Do not manually retag an existing registered artifact.
