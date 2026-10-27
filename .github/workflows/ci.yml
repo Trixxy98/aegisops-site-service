@@ -19,6 +19,8 @@ jobs:
           dotnet run --project tests/Service.Tests/Service.Tests.csproj --no-launch-profile -- -result-ctrf "${{ runner.temp }}/tests.ctrf.json"
           bash scripts/test-summary.sh "${{ runner.temp }}/tests.ctrf.json" "${{ runner.temp }}/test-summary.json"
       - name: Validate CI report contract
+        env:
+          MESSAGE: ${{ github.event.head_commit.message }}
         run: bash tests/ci-contract.sh
       - uses: actions/upload-artifact@v4
         with:

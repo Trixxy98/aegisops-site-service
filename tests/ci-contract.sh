@@ -54,10 +54,21 @@ grep -Fq "github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v
 grep -Fq 'deploy-to: Staging' "$workflow"
 if grep -q 'deploy-to: Production' "$workflow"; then echo 'Production target in rollback workflow' >&2; exit 1; fi
 if grep -q 'workflow_dispatch:' "$workflow"; then echo 'Manual rebuild enabled' >&2; exit 1; fi
-MESSAGE='[staging-rollback:healthy]' bash "$root/scripts/check-rollback-phase.sh" > /dev/null
-for message in '[staging-rollback:failing]' '[staging-rollback:healthy] [staging-rollback:failing]' 'ordinary push'; do
+grep -Fq 'MESSAGE: ${{ github.event.head_commit.message }}' "$workflow"
+expected=false
+phase=healthy
+if [[ "${GITHUB_REF:-}" == 'refs/heads/demo/rollback-validation' && "${MESSAGE:-}" == *'[staging-rollback:failing]'* && "${MESSAGE:-}" != *'[staging-rollback:healthy]'* ]]; then
+  expected=true
+  phase=failing
+fi
+grep -Fx "ARG AEGISOPS_FIXTURE_FAIL_HEALTH=$expected" Dockerfile > /dev/null || {
+  echo "Fixture must be $expected for this branch and phase" >&2; exit 1;
+}
+MESSAGE="[staging-rollback:$phase]" bash "$root/scripts/check-rollback-phase.sh" > /dev/null
+for message in '[staging-rollback:healthy]' '[staging-rollback:failing]' '[staging-rollback:healthy] [staging-rollback:failing]' 'ordinary push'; do
+  if [[ "$message" == "[staging-rollback:$phase]" ]]; then continue; fi
   if MESSAGE="$message" bash "$root/scripts/check-rollback-phase.sh" > /dev/null 2>&1; then
-    echo "Unsafe phase accepted with healthy image: $message" >&2; exit 1
+    echo "Unsafe phase accepted with $phase image: $message" >&2; exit 1
   fi
 done
-echo 'PASS: exact branch/marker Staging gate and healthy fixture phase'
+echo "PASS: exact branch/marker Staging gate and $phase fixture phase"
