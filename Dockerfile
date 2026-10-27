@@ -10,9 +10,11 @@ USER $APP_UID
 ARG VERSION=v0.0.0-dev
 ARG COMMIT_SHA=local
 ARG BUILD_TIME=unknown
+ARG AEGISOPS_FIXTURE_FAIL_HEALTH=false
 ENV ASPNETCORE_URLS=http://+:8080 \
     Service__Version=$VERSION \
     Service__CommitSha=$COMMIT_SHA \
-    Service__BuildTime=$BUILD_TIME
+    Service__BuildTime=$BUILD_TIME \
+    AegisOpsFixture__FailHealth=$AEGISOPS_FIXTURE_FAIL_HEALTH
 EXPOSE 8080
 ENTRYPOINT ["dotnet", "Service.dll"]

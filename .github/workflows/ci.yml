@@ -27,7 +27,7 @@ jobs:
 
   image:
     needs: build
-    if: github.event_name != 'pull_request'
+    if: github.event_name == 'push' && (github.ref != 'refs/heads/demo/rollback-validation' || contains(github.event.head_commit.message, '[staging-rollback:healthy]') || contains(github.event.head_commit.message, '[staging-rollback:failing]'))
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -38,6 +38,11 @@ jobs:
       digest: ${{ steps.build.outputs.digest }}
     steps:
       - uses: actions/checkout@v4
+      - name: Check rollback fixture matches explicit push phase
+        if: github.ref == 'refs/heads/demo/rollback-validation'
+        env:
+          MESSAGE: ${{ github.event.head_commit.message }}
+        run: bash scripts/check-rollback-phase.sh
       - id: meta
         run: bash scripts/image-meta.sh
       - uses: docker/login-action@v3
@@ -58,7 +63,7 @@ jobs:
 
   security:
     needs: image
-    if: github.event_name != 'pull_request'
+    if: github.event_name == 'push' && (github.ref != 'refs/heads/demo/rollback-validation' || contains(github.event.head_commit.message, '[staging-rollback:healthy]') || contains(github.event.head_commit.message, '[staging-rollback:failing]'))
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -100,7 +105,8 @@ jobs:
 
   register:
     needs: [image, security]
-    if: github.event_name != 'pull_request' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
+    # Only explicitly marked pushes to this one demo branch may request Staging.
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v') || (github.ref == 'refs/heads/demo/rollback-validation' && (contains(github.event.head_commit.message, '[staging-rollback:healthy]') || contains(github.event.head_commit.message, '[staging-rollback:failing]'))))
     runs-on: self-hosted
     steps:
       - uses: actions/checkout@v4

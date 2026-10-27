@@ -44,3 +44,20 @@ GITHUB_REF=refs/tags/v1.2.3 GITHUB_REF_NAME=v1.2.3 GITHUB_RUN_ID=456 \
 grep -q '^version=v1.2.3-run.456.1$' "$tmp/tag"
 grep -q '^image=ghcr.io/example/site-service:v1.2.3-run.456.1$' "$tmp/tag"
 echo 'PASS: image versions unique per attempt; no manual rebuild trigger'
+
+# A demo push alone must never reach register; only the exact branch and an
+# explicit marker may reach the Staging-only reporting action.
+workflow="$root/.github/workflows/ci.yml"
+cd "$root"
+grep -Fq "github.ref == 'refs/heads/demo/rollback-validation' && (contains(github.event.head_commit.message, '[staging-rollback:healthy]') || contains(github.event.head_commit.message, '[staging-rollback:failing]'))" "$workflow"
+grep -Fq "github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')" "$workflow"
+grep -Fq 'deploy-to: Staging' "$workflow"
+if grep -q 'deploy-to: Production' "$workflow"; then echo 'Production target in rollback workflow' >&2; exit 1; fi
+if grep -q 'workflow_dispatch:' "$workflow"; then echo 'Manual rebuild enabled' >&2; exit 1; fi
+MESSAGE='[staging-rollback:healthy]' bash "$root/scripts/check-rollback-phase.sh" > /dev/null
+for message in '[staging-rollback:failing]' '[staging-rollback:healthy] [staging-rollback:failing]' 'ordinary push'; do
+  if MESSAGE="$message" bash "$root/scripts/check-rollback-phase.sh" > /dev/null 2>&1; then
+    echo "Unsafe phase accepted with healthy image: $message" >&2; exit 1
+  fi
+done
+echo 'PASS: exact branch/marker Staging gate and healthy fixture phase'

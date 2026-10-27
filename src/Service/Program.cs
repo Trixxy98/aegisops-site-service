@@ -9,7 +9,10 @@ sites["KUL-01"] = new Site("KUL-01", "Kuala Lumpur Core", "Kuala Lumpur", "Centr
 devices["KUL-01"] = [new Device("kul-core-r1", "router", "Cisco", "10.0.0.1")];
 
 app.MapGet("/", () => Results.Ok(new { service = info.Name }));
-app.MapGet("/health", () => Results.Ok(new { status = "Healthy" }));
+// Only the opt-in Staging rollback fixture may make the service unhealthy.
+app.MapGet("/health", () => app.Environment.IsEnvironment("Staging") && app.Configuration.GetValue<bool>("AegisOpsFixture:FailHealth")
+    ? Results.StatusCode(StatusCodes.Status503ServiceUnavailable)
+    : Results.Ok(new { status = "Healthy" }));
 app.MapGet("/version", () => Results.Ok(new {
     service = info.Name,
     version = info.Version,
