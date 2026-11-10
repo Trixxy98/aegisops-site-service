@@ -70,7 +70,7 @@ jobs:
       - name: Gitleaks (findings are reported to AegisOps; scanner errors fail CI)
         run: |
           docker run --rm -v "$PWD:/src" -w /src zricethezav/gitleaks:v8.24.3 \
-            git --report-format sarif --report-path /src/gitleaks.sarif --exit-code 0 .
+            git --redact --report-format sarif --report-path /src/gitleaks.sarif --exit-code 0 .
       - name: Semgrep
         run: |
           docker run --rm -v "$PWD:/src" -w /src semgrep/semgrep:1.177.0 semgrep scan \
